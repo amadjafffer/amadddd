@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>نظام الطلبات — Firebase (Firestore فقط)</title>
+  <style>
+    :root{
+      --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --danger:#ef4444; --ok:#22c55e;
+      --line:#1f2937;
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Arabic",Cairo,sans-serif}
+    body{margin:0;background:radial-gradient(1200px 600px at 100% -10%, #1e293b 10%, transparent 50%),linear-gradient(180deg,#0b1220,#0b1120 60%,#0f172a);color:var(--text)}
+    header{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;justify-content:space-between}
+    header .brand{font-weight:700;letter-spacing:.2px}
+    header small{color:var(--muted)}
+    .wrap{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;gap:16px}
+    .card{background:var(--card);border:1px solid #1f2937;border-radius:16px;padding:16px}
+    .hide{display:none}
+
+    .grid{display:grid;gap:12px}
+    .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    @media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,button{width:100%;background:#0b1220;color:var(--text);border:1px solid #243042;border-radius:12px;padding:10px 12px}
+    input[type="file"]{padding:8px;background:#0b1220}
+    .row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+    .btn{cursor:pointer;border-radius:12px;border:1px solid #2b3b52;background:#0c1728;padding:8px 12px;color:var(--text)}
+    .btn:hover{background:#0e2037}
+    .btn.danger{border-color:#4b1f25;color:#fecaca;background:#2a1013}
+    .btn.ok{border-color:#1f3b2a;background:#112015}
+
+    .pill{border:1px solid #334155;padding:.2rem .5rem;border-radius:999px;color:#e2e8f0;font-size:12px}
+    .flex{display:flex;gap:8px;flex-wrap:wrap}
+    .hint{font-size:12px;color:#a3b0c0}
+
+    table{width:100%;border-collapse:collapse;overflow:auto;border-radius:12px}
+    thead th{font-size:12px;color:#9fb1c6;background:#0b1322;position:sticky;top:0}
+    th,td{border-bottom:1px solid #1f2b3d;padding:10px;text-align:center}
+
+    .toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between}
+    .right{display:flex;gap:10px;align-items:center}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="brand">نظام الطلبات</div>
+      <small>Firebase Firestore (بدون Auth)</small>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- بطاقة النموذج -->
+    <section id="appCard" class="card">
+      <div class="grid g4">
+        <div>
+          <label>تاريخ الشراء</label>
+          <input id="buyItemDate" type="date" />
+        </div>
+        <div>
+          <label>تاريخ الطلب</label>
+          <input id="orderDate" type="date" />
+        </div>
+        <div>
+          <label>رقم الطلب</label>
+          <input id="orderNo" placeholder="ORD-001" />
+        </div>
+        <div>
+          <label>الزبون</label>
+          <input id="customer" placeholder="اسم الزبون" />
+        </div>
+        <div>
+          <label>العنصر</label>
+          <input id="item" placeholder="اسم/وصف السلعة" />
+        </div>
+        <div>
+          <label>تفاصيل القطع</label>
+          <input id="pcsDetails" placeholder="مثال: 10×Size M" />
+        </div>
+        <div>
+          <label>مجموع القطع</label>
+          <input id="totalPcs" type="number" value="0" />
+        </div>
+        <div>
+          <label>سعر القطعة الأصلي CNY</label>
+          <input id="orgPriceCny" type="number" step="0.01" value="0" />
+        </div>
+        <div>
+          <label>سعر القطعة للبيع CNY</label>
+          <input id="pcsPriceCny" type="number" step="0.01" value="0" />
+        </div>
+        <div>
+          <label>سعر الصرف (CNY→USD)</label>
+          <input id="exchangeRate" type="number" step="0.0001" value="7.20" />
+        </div>
+        <div>
+          <label>رابط/سوق (WeChat/Link)</label>
+          <input id="link" placeholder="https://..." />
+        </div>
+        <div>
+          <label>رقم التتبع</label>
+          <input id="trackNo" placeholder="YT..." />
+        </div>
+        <div>
+          <label>نوع التحميل</label>
+          <input id="loadingType" placeholder="مثال: بحر/جو" />
+        </div>
+        <div>
+          <label>ملاحظات المستودع</label>
+          <input id="warehouseNotes" />
+        </div>
+        <div>
+          <label>ملاحظات نهائية</label>
+          <input id="finalNotes" />
+        </div>
+        <div>
+          <label>مطابقة المستودع؟</label>
+          <select id="isCorrect">
+            <option value="yes" selected>نعم</option>
+            <option value="no">لا</option>
+          </select>
+        </div>
+        <div>
+          <label>صورة المنتج (اختياري)</label>
+          <input id="photo" type="file" accept="image/*" />
+        </div>
+        <div>
+          <label>صورة المستودع (اختياري)</label>
+          <input id="warehousePhoto" type="file" accept="image/*" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button id="btnSave" class="btn ok">حفظ الطلب</button>
+        <button id="btnReset" class="btn">تفريغ الحقول</button>
+      </div>
+      <div id="calcHint" class="hint" style="margin-top:8px"></div>
+    </section>
+
+    <!-- بطاقة القائمة -->
+    <section id="listCard" class="card">
+      <div class="toolbar">
+        <div class="right">
+          <label>بحث</label>
+          <input id="q" placeholder="ابحث بالزبون/رقم الطلب/العنصر" style="min-width:280px" />
+        </div>
+      </div>
+      <div style="overflow:auto;margin-top:10px">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>تاريخ الطلب</th>
+              <th>رقم الطلب</th>
+              <th>الزبون</th>
+              <th>العنصر</th>
+              <th>القطع</th>
+              <th>إجمالي الأصل ¥</th>
+              <th>إجمالي الأصل $</th>
+              <th>إجمالي البيع ¥</th>
+              <th>إجمالي البيع $</th>
+              <th>الربح $</th>
+              <th>مطابقة</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    // 1) إعدادات مشروعك من Firebase Console
+    const firebaseConfig = {
+      apiKey: "PASTE_YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      messagingSenderId: "",
+      appId: "",
+    };
+
+    // 2) استيراد SDK - Firestore فقط
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 3) تهيئة Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // عناصر DOM
+    const buyItemDate = document.getElementById('buyItemDate');
+    const orderDate = document.getElementById('orderDate');
+    const orderNo = document.getElementById('orderNo');
+    const customer = document.getElementById('customer');
+    const item = document.getElementById('item');
+    const pcsDetails = document.getElementById('pcsDetails');
+    const totalPcs = document.getElementById('totalPcs');
+    const orgPriceCny = document.getElementById('orgPriceCny');
+    const pcsPriceCny = document.getElementById('pcsPriceCny');
+    const exchangeRate = document.getElementById('exchangeRate');
+    const link = document.getElementById('link');
+    const trackNo = document.getElementById('trackNo');
+    const loadingType = document.getElementById('loadingType');
+    const warehouseNotes = document.getElementById('warehouseNotes');
+    const finalNotes = document.getElementById('finalNotes');
+    const isCorrect = document.getElementById('isCorrect');
+    const photo = document.getElementById('photo');
+    const warehousePhoto = document.getElementById('warehousePhoto');
+
+    const btnSave = document.getElementById('btnSave');
+    const btnReset = document.getElementById('btnReset');
+    const calcHint = document.getElementById('calcHint');
+
+    const qInput = document.getElementById('q');
+    const tbody = document.querySelector('#tbl tbody');
+
+    // أدوات
+    const fmt = (n)=> new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n||0);
+
+    function calcPreview(){
+      const pcs = +totalPcs.value||0;
+      const org = +orgPriceCny.value||0;
+      const sell = +pcsPriceCny.value||0;
+      const rate = +exchangeRate.value||1;
+      const totalOrgCny = pcs*org;
+      const totalOrgUsd = rate? totalOrgCny / rate : 0;
+      const totalSellCny = pcs*sell;
+      const totalSellUsd = rate? totalSellCny / rate : 0;
+      const margin = totalSellUsd - totalOrgUsd;
+      const marginPct = totalSellUsd? (margin/totalSellUsd)*100 : 0;
+      calcHint.textContent = `الإجمالي الأصلي: ¥${fmt(totalOrgCny)} ($${fmt(totalOrgUsd)}) — إجمالي البيع: ¥${fmt(totalSellCny)} ($${fmt(totalSellUsd)}) — الربح: $${fmt(margin)} (${fmt(marginPct)}%)`;
+    }
+    [totalPcs, orgPriceCny, pcsPriceCny, exchangeRate].forEach(el=> el.addEventListener('input', calcPreview));
+    calcPreview();
+
+    btnReset.onclick = ()=>{
+      document.querySelectorAll('#appCard input, #appCard select').forEach(i=>{ if(i.type!=='file') i.value=''; });
+      isCorrect.value='yes';
+      totalPcs.value = orgPriceCny.value = pcsPriceCny.value = 0;
+      exchangeRate.value = 7.20;
+      calcPreview();
+      photo.value = ""; warehousePhoto.value = "";
+    };
+
+    // ✨ دوال ضغط وتحويل الصورة إلى Base64 (JPEG)
+    async function fileToCompressedBase64(file, maxWidth = 800, quality = 0.7){
+      if(!file) return null;
+      const img = await new Promise((resolve, reject)=>{
+        const url = URL.createObjectURL(file);
+        const i = new Image();
+        i.onload = ()=> resolve(i);
+        i.onerror = reject;
+        i.src = url;
+      });
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+      const arrayBuf = await blob.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+      return { base64, mime:'image/jpeg', width:canvas.width, height:canvas.height, bytes: blob.size };
+    }
+
+    // حفظ طلب
+    btnSave.onclick = async ()=>{
+      try{
+        btnSave.disabled = true; btnSave.textContent = '... جارِ الحفظ';
+
+        const pcs = +totalPcs.value||0;
+        const org = +orgPriceCny.value||0;
+        const sell = +pcsPriceCny.value||0;
+        const rate = +exchangeRate.value||1;
+        const totalOrgCny = pcs*org;
+        const totalOrgUsd = rate? totalOrgCny / rate : 0;
+        const totalSellCny = pcs*sell;
+        const totalSellUsd = rate? totalSellCny / rate : 0;
+        const marginUsd = totalSellUsd - totalOrgUsd;
+
+        // ضغط الصور إلى Base64 (اختياري)
+        const photoB = await fileToCompressedBase64(photo.files[0]);
+        const whPhotoB = await fileToCompressedBase64(warehousePhoto.files[0]);
+
+        // حماية حد Firestore ~1MB
+        if (photoB && photoB.bytes > 950 * 1024) throw new Error('صورة المنتج كبيرة بعد الضغط. اختر صورة أصغر.');
+        if (whPhotoB && whPhotoB.bytes > 950 * 1024) throw new Error('صورة المستودع كبيرة بعد الضغط.');
+
+        const payload = {
+          buyItemDate: buyItemDate.value||null,
+          orderDate: orderDate.value||null,
+          orderNo: orderNo.value.trim(),
+          customer: customer.value.trim(),
+          item: item.value.trim(),
+          pcsDetails: pcsDetails.value.trim(),
+          totalPcs: pcs,
+          orgPriceCny: org,
+          pcsPriceCny: sell,
+          exchangeRate: rate,
+          totals: { totalOrgCny, totalOrgUsd, totalSellCny, totalSellUsd, marginUsd },
+          link: link.value.trim(),
+          trackNo: trackNo.value.trim(),
+          loadingType: loadingType.value.trim(),
+          warehouseNotes: warehouseNotes.value.trim(),
+          finalNotes: finalNotes.value.trim(),
+          isCorrect: isCorrect.value === 'yes',
+          photoB64: photoB ? photoB.base64 : null,
+          warehousePhotoB64: whPhotoB ? whPhotoB.base64 : null,
+          photoMeta: photoB ? { mime: photoB.mime, w: photoB.width, h: photoB.height, bytes: photoB.bytes } : null,
+          warehousePhotoMeta: whPhotoB ? { mime: whPhotoB.mime, w: whPhotoB.width, h: whPhotoB.height, bytes: whPhotoB.bytes } : null,
+          createdAt: serverTimestamp()
+        };
+        if(!payload.orderNo) throw new Error('أدخل رقم الطلب');
+
+        await addDoc(collection(db,'orders'), payload);
+        btnSave.textContent = 'تم الحفظ ✅';
+        setTimeout(()=>{ btnSave.textContent = 'حفظ الطلب'; btnSave.disabled=false; }, 800);
+        btnReset.click();
+      }catch(e){
+        alert('فشل الحفظ: '+ (e.message||e.code));
+        btnSave.disabled=false; btnSave.textContent = 'حفظ الطلب';
+      }
+    };
+
+    // الإستماع للتغييرات + تصفية بسيطة
+    let rowsCache = [];
+
+    function renderRows(list){
+      const q = (qInput.value||'').toLowerCase();
+      const filtered = list.filter(x=> !q ||
+        (x.customer && x.customer.toLowerCase().includes(q)) ||
+        (x.orderNo && x.orderNo.toLowerCase().includes(q)) ||
+        (x.item && x.item.toLowerCase().includes(q))
+      );
+      tbody.innerHTML = '';
+      for(const r of filtered){
+        const tr = document.createElement('tr');
+        const marginColor = r.totals?.marginUsd>=0? 'style="color:#22c55e"':'style="color:#ef4444"';
+
+        // حوّل Base64 إلى Data URL عند العرض فقط
+        const photoHref = r.photoB64 ? `data:${r.photoMeta?.mime||'image/jpeg'};base64,${r.photoB64}` : null;
+        const whPhotoHref = r.warehousePhotoB64 ? `data:${r.warehousePhotoMeta?.mime||'image/jpeg'};base64,${r.warehousePhotoB64}` : null;
+
+        tr.innerHTML = `
+          <td>${r.orderDate||'-'}</td>
+          <td>${r.orderNo||'-'}</td>
+          <td>${r.customer||'-'}</td>
+          <td>${r.item||'-'}</td>
+          <td>${r.totalPcs||0}</td>
+          <td>¥${fmt(r.totals?.totalOrgCny||0)}</td>
+          <td>$${fmt(r.totals?.totalOrgUsd||0)}</td>
+          <td>¥${fmt(r.totals?.totalSellCny||0)}</td>
+          <td>$${fmt(r.totals?.totalSellUsd||0)}</td>
+          <td ${marginColor}>$${fmt(r.totals?.marginUsd||0)}</td>
+          <td>${r.isCorrect? '<span class="pill">مطابقة</span>':'<span class="pill" style="color:#fecaca">غير مطابقة</span>'}</td>
+          <td>
+            <div class="flex">
+              ${photoHref ? `<a class="btn" target="_blank" href="${photoHref}">📷</a>` : ''}
+              ${whPhotoHref ? `<a class="btn" target="_blank" href="${whPhotoHref}">🏭</a>` : ''}
+              <button class="btn" data-edit="${r._id}">تعديل</button>
+              <button class="btn danger" data-del="${r._id}">حذف</button>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    onSnapshot(query(collection(db,'orders'), orderBy('createdAt','desc')), (snap)=>{
+      rowsCache = snap.docs.map(d=> ({ _id:d.id, ...d.data() }));
+      renderRows(rowsCache);
+    });
+
+    qInput.addEventListener('input', ()=> renderRows(rowsCache));
+
+    // تعديل/حذف
+    tbody.addEventListener('click', async (ev)=>{
+      const id = ev.target.getAttribute('data-del') || ev.target.getAttribute('data-edit');
+      if(!id) return;
+      const dref = doc(db,'orders', id);
+      const row = rowsCache.find(x=> x._id===id);
+      if(!row) return;
+
+      if(ev.target.hasAttribute('data-del')){
+        if(confirm('حذف الطلب؟')) await deleteDoc(dref);
+        return;
+      }
+
+      // تحميل القيم في النموذج للتعديل
+      buyItemDate.value = row.buyItemDate||'';
+      orderDate.value   = row.orderDate||'';
+      orderNo.value     = row.orderNo||'';
+      customer.value    = row.customer||'';
+      item.value        = row.item||'';
+      pcsDetails.value  = row.pcsDetails||'';
+      totalPcs.value    = row.totalPcs||0;
+      orgPriceCny.value = row.orgPriceCny||0;
+      pcsPriceCny.value = row.pcsPriceCny||0;
+      exchangeRate.value= row.exchangeRate||7.2;
+      link.value        = row.link||'';
+      trackNo.value     = row.trackNo||'';
+      loadingType.value = row.loadingType||'';
+      warehouseNotes.value = row.warehouseNotes||'';
+      finalNotes.value  = row.finalNotes||'';
+      isCorrect.value   = row.isCorrect? 'yes':'no';
+      calcPreview();
+
+      const isUpdate = confirm('تعديل هذا السجل؟ بعد حفظ الطلب سيتم التحديث');
+      if(!isUpdate) return;
+
+      try{
+        const pcs = +totalPcs.value||0;
+        const org = +orgPriceCny.value||0;
+        const sell = +pcsPriceCny.value||0;
+        const rate = +exchangeRate.value||1;
+        const totalOrgCny = pcs*org;
+        const totalOrgUsd = rate? totalOrgCny / rate : 0;
+        const totalSellCny = pcs*sell;
+        const totalSellUsd = rate? totalSellCny / rate : 0;
+        const marginUsd = totalSellUsd - totalOrgUsd;
+
+        // إن وُجدت صور جديدة نستبدل، غير ذلك نترك القديمة
+        const newPhotoB    = photo.files[0] ? await fileToCompressedBase64(photo.files[0]) : null;
+        const newWhPhotoB  = warehousePhoto.files[0] ? await fileToCompressedBase64(warehousePhoto.files[0]) : null;
+
+        if (newPhotoB && newPhotoB.bytes > 950 * 1024) throw new Error('صورة المنتج كبيرة بعد الضغط.');
+        if (newWhPhotoB && newWhPhotoB.bytes > 950 * 1024) throw new Error('صورة المستودع كبيرة بعد الضغط.');
+
+        await updateDoc(dref, {
+          buyItemDate: buyItemDate.value||null,
+          orderDate: orderDate.value||null,
+          orderNo: orderNo.value.trim(),
+          customer: customer.value.trim(),
+          item: item.value.trim(),
+          pcsDetails: pcsDetails.value.trim(),
+          totalPcs: pcs,
+          orgPriceCny: org,
+          pcsPriceCny: sell,
+          exchangeRate: rate,
+          totals: { totalOrgCny, totalOrgUsd, totalSellCny, totalSellUsd, marginUsd },
+          link: link.value.trim(),
+          trackNo: trackNo.value.trim(),
+          loadingType: loadingType.value.trim(),
+          warehouseNotes: warehouseNotes.value.trim(),
+          finalNotes: finalNotes.value.trim(),
+          isCorrect: isCorrect.value === 'yes',
+          photoB64: newPhotoB ? newPhotoB.base64 : (row.photoB64 ?? null),
+          warehousePhotoB64: newWhPhotoB ? newWhPhotoB.base64 : (row.warehousePhotoB64 ?? null),
+          photoMeta: newPhotoB ? { mime:newPhotoB.mime, w:newPhotoB.width, h:newPhotoB.height, bytes:newPhotoB.bytes } : (row.photoMeta ?? null),
+          warehousePhotoMeta: newWhPhotoB ? { mime:newWhPhotoB.mime, w:newWhPhotoB.width, h:newWhPhotoB.height, bytes:newWhPhotoB.bytes } : (row.warehousePhotoMeta ?? null),
+        });
+        alert('تم تحديث السجل ✅');
+        btnReset.click();
+      }catch(e){ alert('تعذر التحديث: '+ (e.message||e.code)); }
+    });
+  </script>
+</body>
+</html>
